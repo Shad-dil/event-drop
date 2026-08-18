@@ -4,22 +4,30 @@ import { r2Client, R2_BUCKET } from "../config/r2";
 import { env } from "../config/env";
 import { prisma } from "../config/prisma";
 import { BadRequestError, NotFoundError } from "../utils/AppError";
-import { buildPhotoObjectKey, objectKeyBelongsToEvent } from "../utils/objectKey";
+import {
+  buildPhotoObjectKey,
+  objectKeyBelongsToEvent,
+} from "../utils/objectKey";
 
 const PRESIGN_EXPIRY_SECONDS = 5 * 60; // 5 minutes — plenty of time to complete a direct upload
 
 export async function createPresignedUpload(
   eventId: string,
   mimeType: string,
-  size: number
+  size: number,
 ) {
+  if (!R2_BUCKET) {
+    throw new BadRequestError(
+      "Photo uploads are not configured. Set R2_BUCKET_NAME in api/.env before uploading images.",
+    );
+  }
+
   const objectKey = buildPhotoObjectKey(eventId, mimeType);
 
   const command = new PutObjectCommand({
     Bucket: R2_BUCKET,
     Key: objectKey,
     ContentType: mimeType,
-    ContentLength: size,
   });
 
   const uploadUrl = await getSignedUrl(r2Client, command, {
@@ -66,7 +74,7 @@ export async function listApprovedPhotos(eventId: string) {
 export async function confirmUpload(
   eventId: string,
   guestId: string,
-  input: { objectKey: string; mimeType: string; size: number }
+  input: { objectKey: string; mimeType: string; size: number },
 ) {
   if (!objectKeyBelongsToEvent(input.objectKey, eventId)) {
     throw new BadRequestError("This upload does not belong to this event");
@@ -80,9 +88,13 @@ export async function confirmUpload(
   // Confirm the object actually landed in R2 before trusting the metadata —
   // guests could otherwise POST fabricated objectKeys with no real upload.
   try {
-    await r2Client.send(new HeadObjectCommand({ Bucket: R2_BUCKET, Key: input.objectKey }));
+    await r2Client.send(
+      new HeadObjectCommand({ Bucket: R2_BUCKET, Key: input.objectKey }),
+    );
   } catch {
-    throw new BadRequestError("We couldn't find that upload — please try again");
+    throw new BadRequestError(
+      "We couldn't find that upload — please try again",
+    );
   }
 
   const photo = await prisma.photo.create({

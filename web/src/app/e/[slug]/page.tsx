@@ -4,14 +4,32 @@ import { use, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { PhotoUploader } from "@/components/photo-uploader";
 import { PhotoGallery } from "@/components/photo-gallery";
-import { usePublicEvent, useEnsureGuestSession, useUpdateGuestName } from "@/lib/hooks/useGuest";
+import {
+  usePublicEvent,
+  useEnsureGuestSession,
+  useUpdateGuestName,
+} from "@/lib/hooks/useGuest";
 
-export default function GuestEventPage({ params }: { params: Promise<{ slug: string }> }) {
+export default function GuestEventPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
   const { slug } = use(params);
-  const { data: event, isLoading: eventLoading, isError: eventError } = usePublicEvent(slug);
+  const {
+    data: event,
+    isLoading: eventLoading,
+    isError: eventError,
+  } = usePublicEvent(slug);
   const ensureSession = useEnsureGuestSession();
   const updateName = useUpdateGuestName();
   const initialized = useRef(false);
@@ -31,7 +49,7 @@ export default function GuestEventPage({ params }: { params: Promise<{ slug: str
             setConfirmed(true);
           }
         },
-      }
+      },
     );
     // Only run once per mount — this establishes the guest cookie.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -39,6 +57,8 @@ export default function GuestEventPage({ params }: { params: Promise<{ slug: str
 
   async function handleContinue(e: React.FormEvent) {
     e.preventDefault();
+    if (updateName.isPending) return;
+
     if (name.trim()) {
       await updateName.mutateAsync({ slug, name: name.trim() });
     }
@@ -46,14 +66,19 @@ export default function GuestEventPage({ params }: { params: Promise<{ slug: str
   }
 
   if (eventLoading) {
-    return <p className="flex-1 p-12 text-center text-sm text-muted-foreground">Loading event…</p>;
+    return (
+      <p className="flex-1 p-12 text-center text-sm text-muted-foreground">
+        Loading event…
+      </p>
+    );
   }
 
   if (eventError || !event) {
     return (
       <div className="flex flex-1 items-center justify-center px-6 text-center">
         <p className="text-muted-foreground">
-          This event link doesn&apos;t look right. Double-check the QR code or link.
+          This event link doesn&apos;t look right. Double-check the QR code or
+          link.
         </p>
       </div>
     );
@@ -64,7 +89,9 @@ export default function GuestEventPage({ params }: { params: Promise<{ slug: str
       <div className="text-center">
         <span className="text-4xl">📸</span>
         <h1 className="mt-3 text-2xl font-semibold">{event.name}</h1>
-        {event.description && <p className="mt-1 text-muted-foreground">{event.description}</p>}
+        {event.description && (
+          <p className="mt-1 text-muted-foreground">{event.description}</p>
+        )}
         {event.eventDate && (
           <p className="mt-1 text-sm text-muted-foreground">
             {new Date(event.eventDate).toLocaleDateString()}
@@ -93,8 +120,8 @@ export default function GuestEventPage({ params }: { params: Promise<{ slug: str
                   onChange={(e) => setName(e.target.value)}
                 />
               </div>
-              <Button type="submit" disabled={ensureSession.isPending}>
-                Continue
+              <Button type="submit" disabled={updateName.isPending}>
+                {updateName.isPending ? "Saving..." : "Continue"}
               </Button>
             </form>
           ) : (
