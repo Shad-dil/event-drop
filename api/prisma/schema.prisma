@@ -1,0 +1,105 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  events       Event[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Event {
+  id            String   @id @default(cuid())
+  slug          String   @unique
+  name          String
+  description   String?
+  eventDate     DateTime?
+  coverImageKey String?
+  autoApprove   Boolean  @default(true)
+
+  organizerId String
+  organizer   User   @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+
+  guests Guest[]
+  photos Photo[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizerId])
+  @@map("events")
+}
+
+model Guest {
+  id        String @id @default(cuid())
+  sessionId String @unique
+
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  name String?
+
+  photos    Photo[]
+  reactions Reaction[]
+
+  createdAt DateTime @default(now())
+
+  @@index([eventId])
+  @@map("guests")
+}
+
+enum PhotoStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Photo {
+  id        String      @id @default(cuid())
+  objectKey String      @unique
+  mimeType  String
+  size      Int
+  status    PhotoStatus @default(PENDING)
+
+  eventId String
+  event   Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  guestId String
+  guest   Guest @relation(fields: [guestId], references: [id], onDelete: Cascade)
+
+  reactions Reaction[]
+
+  createdAt DateTime @default(now())
+
+  @@index([eventId, status])
+  @@index([guestId])
+  @@map("photos")
+}
+
+model Reaction {
+  id   String @id @default(cuid())
+  type String @default("heart")
+
+  photoId String
+  photo   Photo @relation(fields: [photoId], references: [id], onDelete: Cascade)
+
+  guestId String
+  guest   Guest @relation(fields: [guestId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([photoId, guestId, type])
+  @@index([photoId])
+  @@map("reactions")
+}
