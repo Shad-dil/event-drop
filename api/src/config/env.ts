@@ -25,7 +25,7 @@ const envSchema = z.object({
   R2_BUCKET_NAME: z.string().optional().default(""),
   R2_PUBLIC_URL: z.string().optional().default(""),
 
-  WEB_APP_URL: z.string().default("http://localhost:3000"),
+  WEB_APP_URL: z.string().default("https://event-drop-red.vercel.app"),
 });
 
 const parsed = envSchema.safeParse(process.env);
