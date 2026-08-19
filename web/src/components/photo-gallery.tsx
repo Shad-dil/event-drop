@@ -10,10 +10,8 @@ export function PhotoGallery({
   slug: string;
   eventId?: string;
 }) {
-  const { photos, isLoading, likedPhotoIds, toggleReaction } = useLiveGallery(
-    slug,
-    eventId,
-  );
+  const { photos, isLoading, likedPhotoIds, pendingLikeIds, toggleReaction } =
+    useLiveGallery(slug, eventId);
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
 
   const selectedPhotoIndex = photos.findIndex(
@@ -191,11 +189,22 @@ export function PhotoGallery({
               <button
                 type="button"
                 onClick={() => toggleReaction(selectedPhoto.id)}
-                className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium"
+                disabled={pendingLikeIds.has(selectedPhoto.id)}
+                className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <span>{likedPhotoIds.has(selectedPhoto.id) ? "❤️" : "🤍"}</span>
                 <span>
-                  {likedPhotoIds.has(selectedPhoto.id) ? "Liked" : "Like"}
+                  {pendingLikeIds.has(selectedPhoto.id)
+                    ? "⏳"
+                    : likedPhotoIds.has(selectedPhoto.id)
+                      ? "❤️"
+                      : "🤍"}
+                </span>
+                <span>
+                  {pendingLikeIds.has(selectedPhoto.id)
+                    ? "Liking..."
+                    : likedPhotoIds.has(selectedPhoto.id)
+                      ? "Liked"
+                      : "Like"}
                 </span>
                 <span className="text-muted-foreground">
                   {selectedPhoto.reactionCount}

@@ -9,6 +9,7 @@ export function useLiveGallery(slug: string, eventId: string | undefined) {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [likedPhotoIds, setLikedPhotoIds] = useState<Set<string>>(new Set());
+  const [pendingLikeIds, setPendingLikeIds] = useState<Set<string>>(new Set());
 
   // Initial fetch of already-approved photos.
   useEffect(() => {
@@ -68,26 +69,78 @@ export function useLiveGallery(slug: string, eventId: string | undefined) {
   }, [eventId]);
 
   async function toggleReaction(photoId: string) {
+    if (pendingLikeIds.has(photoId)) return;
+
+    const wasLiked = likedPhotoIds.has(photoId);
+    const currentCount =
+      photos.find((photo) => photo.id === photoId)?.reactionCount ?? 0;
+    const nextLiked = !wasLiked;
+    const optimisticCount = Math.max(0, currentCount + (nextLiked ? 1 : -1));
+
+    setPendingLikeIds((prev) => {
+      const next = new Set(prev);
+      next.add(photoId);
+      return next;
+    });
+
+    setLikedPhotoIds((prev) => {
+      const next = new Set(prev);
+      if (nextLiked) next.add(photoId);
+      else next.delete(photoId);
+      return next;
+    });
+
+    setPhotos((prev) =>
+      prev.map((photo) =>
+        photo.id === photoId
+          ? { ...photo, reactionCount: optimisticCount }
+          : photo,
+      ),
+    );
+
     try {
       const result = await apiClient.post<{ added: boolean; count: number }>(
         `/photos/${photoId}/reactions`,
         { slug },
       );
+
       setLikedPhotoIds((prev) => {
         const next = new Set(prev);
         if (result.added) next.add(photoId);
         else next.delete(photoId);
         return next;
       });
+
       setPhotos((prev) =>
-        prev.map((p) =>
-          p.id === photoId ? { ...p, reactionCount: result.count } : p,
+        prev.map((photo) =>
+          photo.id === photoId
+            ? { ...photo, reactionCount: result.count }
+            : photo,
         ),
       );
     } catch {
-      // Non-critical — the tap just doesn't register; no need to interrupt the guest.
+      setLikedPhotoIds((prev) => {
+        const next = new Set(prev);
+        if (wasLiked) next.add(photoId);
+        else next.delete(photoId);
+        return next;
+      });
+
+      setPhotos((prev) =>
+        prev.map((photo) =>
+          photo.id === photoId
+            ? { ...photo, reactionCount: currentCount }
+            : photo,
+        ),
+      );
+    } finally {
+      setPendingLikeIds((prev) => {
+        const next = new Set(prev);
+        next.delete(photoId);
+        return next;
+      });
     }
   }
 
-  return { photos, isLoading, likedPhotoIds, toggleReaction };
+  return { photos, isLoading, likedPhotoIds, pendingLikeIds, toggleReaction };
 }
