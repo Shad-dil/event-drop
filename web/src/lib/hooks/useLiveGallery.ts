@@ -34,7 +34,10 @@ export function useLiveGallery(slug: string, eventId: string | undefined) {
     if (!eventId) return;
 
     const socket = getSocket();
-    socket.emit("event:join", eventId);
+
+    const joinRoom = () => {
+      socket.emit("event:join", eventId);
+    };
 
     function handleNewPhoto(photo: Photo) {
       setPhotos((prev) => {
@@ -45,14 +48,19 @@ export function useLiveGallery(slug: string, eventId: string | undefined) {
 
     function handleReactionUpdate(data: { photoId: string; count: number }) {
       setPhotos((prev) =>
-        prev.map((p) => (p.id === data.photoId ? { ...p, reactionCount: data.count } : p))
+        prev.map((p) =>
+          p.id === data.photoId ? { ...p, reactionCount: data.count } : p,
+        ),
       );
     }
 
+    joinRoom();
+    socket.on("connect", joinRoom);
     socket.on("photo:new", handleNewPhoto);
     socket.on("reaction:update", handleReactionUpdate);
 
     return () => {
+      socket.off("connect", joinRoom);
       socket.off("photo:new", handleNewPhoto);
       socket.off("reaction:update", handleReactionUpdate);
       socket.emit("event:leave", eventId);
@@ -63,7 +71,7 @@ export function useLiveGallery(slug: string, eventId: string | undefined) {
     try {
       const result = await apiClient.post<{ added: boolean; count: number }>(
         `/photos/${photoId}/reactions`,
-        { slug }
+        { slug },
       );
       setLikedPhotoIds((prev) => {
         const next = new Set(prev);
@@ -72,7 +80,9 @@ export function useLiveGallery(slug: string, eventId: string | undefined) {
         return next;
       });
       setPhotos((prev) =>
-        prev.map((p) => (p.id === photoId ? { ...p, reactionCount: result.count } : p))
+        prev.map((p) =>
+          p.id === photoId ? { ...p, reactionCount: result.count } : p,
+        ),
       );
     } catch {
       // Non-critical — the tap just doesn't register; no need to interrupt the guest.

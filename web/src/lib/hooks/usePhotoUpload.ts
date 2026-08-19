@@ -73,14 +73,35 @@ export function usePhotoUpload(slug: string) {
 
   const addFiles = useCallback(
     (files: FileList | File[]) => {
-      const newItems: UploadItem[] = Array.from(files).map((file) => ({
+      const fileList = Array.from(files);
+      const newItems: UploadItem[] = fileList.map((file) => ({
         id: `${file.name}-${file.size}-${Math.random().toString(36).slice(2)}`,
         file,
         previewUrl: URL.createObjectURL(file),
         status: "pending",
       }));
+
       setItems((prev) => [...prev, ...newItems]);
-      newItems.forEach((item) => uploadOne(item));
+
+      const queue = [...newItems];
+      const MAX_CONCURRENT = 2;
+      let active = 0;
+      let index = 0;
+
+      const runNext = () => {
+        if (index >= queue.length) return;
+
+        while (active < MAX_CONCURRENT && index < queue.length) {
+          const current = queue[index++];
+          active += 1;
+          void uploadOne(current).finally(() => {
+            active -= 1;
+            runNext();
+          });
+        }
+      };
+
+      runNext();
     },
     [uploadOne],
   );
@@ -88,7 +109,7 @@ export function usePhotoUpload(slug: string) {
   const retry = useCallback(
     (id: string) => {
       const item = items.find((it) => it.id === id);
-      if (item) uploadOne(item);
+      if (item) void uploadOne(item);
     },
     [items, uploadOne],
   );
