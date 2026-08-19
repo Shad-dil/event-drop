@@ -29,7 +29,9 @@ export function usePhotoUpload(slug: string) {
   const [items, setItems] = useState<UploadItem[]>([]);
 
   const updateItem = useCallback((id: string, patch: Partial<UploadItem>) => {
-    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
+    setItems((prev) =>
+      prev.map((it) => (it.id === id ? { ...it, ...patch } : it)),
+    );
   }, []);
 
   const uploadOne = useCallback(
@@ -45,8 +47,9 @@ export function usePhotoUpload(slug: string) {
           mimeType: item.file.type,
           size: item.file.size,
         });
-
-        await uploadFileToR2(uploadUrl, item.file);
+        const compressed = await compressImage(item.file);
+        await uploadFileToR2(uploadUrl, compressed);
+        // await uploadFileToR2(uploadUrl, item.file);
 
         updateItem(item.id, { status: "confirming" });
 
@@ -65,7 +68,7 @@ export function usePhotoUpload(slug: string) {
         });
       }
     },
-    [slug, updateItem]
+    [slug, updateItem],
   );
 
   const addFiles = useCallback(
@@ -79,7 +82,7 @@ export function usePhotoUpload(slug: string) {
       setItems((prev) => [...prev, ...newItems]);
       newItems.forEach((item) => uploadOne(item));
     },
-    [uploadOne]
+    [uploadOne],
   );
 
   const retry = useCallback(
@@ -87,8 +90,45 @@ export function usePhotoUpload(slug: string) {
       const item = items.find((it) => it.id === id);
       if (item) uploadOne(item);
     },
-    [items, uploadOne]
+    [items, uploadOne],
   );
 
   return { items, addFiles, retry };
+}
+
+async function compressImage(file: File): Promise<File> {
+  const imageBitmap = await createImageBitmap(file);
+
+  const maxSize = 1600;
+  const ratio = Math.min(
+    1,
+    maxSize / Math.max(imageBitmap.width, imageBitmap.height),
+  );
+
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(imageBitmap.width * ratio);
+  canvas.height = Math.round(imageBitmap.height * ratio);
+
+  const ctx = canvas.getContext("2d");
+  ctx?.drawImage(imageBitmap, 0, 0, canvas.width, canvas.height);
+
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (value) => {
+        if (value) {
+          resolve(value);
+          return;
+        }
+
+        reject(new Error("Image compression failed"));
+      },
+      "image/jpeg",
+      0.8,
+    );
+  });
+
+  return new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), {
+    type: "image/jpeg",
+    lastModified: Date.now(),
+  });
 }
