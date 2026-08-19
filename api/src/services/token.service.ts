@@ -34,7 +34,7 @@ export function verifyRefreshToken(token: string): RefreshTokenPayload {
 export const accessCookieOptions = {
   httpOnly: true,
   secure: true,
-  sameSite: "none",
+  sameSite: "none" as const,
   path: "/",
   maxAge: 15 * 60 * 1000,
 };
@@ -42,7 +42,7 @@ export const accessCookieOptions = {
 export const refreshCookieOptions = {
   httpOnly: true,
   secure: true,
-  sameSite: "none",
+  sameSite: "none" as const,
   path: "/api/auth",
   maxAge: 30 * 24 * 60 * 60 * 1000,
 };
