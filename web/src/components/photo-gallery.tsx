@@ -1,12 +1,77 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useLiveGallery } from "@/lib/hooks/useLiveGallery";
 
-export function PhotoGallery({ slug, eventId }: { slug: string; eventId?: string }) {
-  const { photos, isLoading, likedPhotoIds, toggleReaction } = useLiveGallery(slug, eventId);
+export function PhotoGallery({
+  slug,
+  eventId,
+}: {
+  slug: string;
+  eventId?: string;
+}) {
+  const { photos, isLoading, likedPhotoIds, toggleReaction } = useLiveGallery(
+    slug,
+    eventId,
+  );
+  const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
+
+  const selectedPhotoIndex = photos.findIndex(
+    (photo) => photo.id === selectedPhotoId,
+  );
+  const selectedPhoto =
+    selectedPhotoIndex >= 0 ? photos[selectedPhotoIndex] : null;
+
+  const closePhoto = () => {
+    setSelectedPhotoId(null);
+    if (window.history.state && window.history.state.photoId) {
+      window.history.back();
+    }
+  };
+
+  useEffect(() => {
+    const onPopState = () => {
+      setSelectedPhotoId(null);
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && selectedPhoto) {
+        closePhoto();
+      }
+    };
+
+    window.addEventListener("popstate", onPopState);
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [selectedPhoto]);
+
+  const openPhoto = (photoId: string) => {
+    setSelectedPhotoId(photoId);
+    window.history.pushState({ photoId }, "", window.location.href);
+  };
+
+  const goToPhoto = (direction: "prev" | "next") => {
+    if (!photos.length) return;
+
+    const currentIndex = selectedPhotoIndex >= 0 ? selectedPhotoIndex : 0;
+    const nextIndex =
+      direction === "prev"
+        ? (currentIndex - 1 + photos.length) % photos.length
+        : (currentIndex + 1) % photos.length;
+
+    setSelectedPhotoId(photos[nextIndex].id);
+  };
 
   if (isLoading) {
-    return <p className="py-6 text-center text-sm text-muted-foreground">Loading gallery…</p>;
+    return (
+      <p className="py-6 text-center text-sm text-muted-foreground">
+        Loading gallery…
+      </p>
+    );
   }
 
   if (photos.length === 0) {
@@ -26,24 +91,85 @@ export function PhotoGallery({ slug, eventId }: { slug: string; eventId?: string
         {photos.map((photo) => {
           const liked = likedPhotoIds.has(photo.id);
           return (
-            <div
+            <button
               key={photo.id}
-              className="group relative aspect-square overflow-hidden rounded-md border border-border bg-muted"
+              type="button"
+              onClick={() => openPhoto(photo.id)}
+              className="group relative aspect-square overflow-hidden rounded-md border border-border bg-muted text-left"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={photo.url} alt="" className="h-full w-full object-cover" loading="lazy" />
-              <button
-                onClick={() => toggleReaction(photo.id)}
+              <img
+                src={photo.url}
+                alt=""
+                className="h-full w-full object-cover"
+                loading="lazy"
+              />
+              <span
+                onClick={(event) => {
+                  event.stopPropagation();
+                  toggleReaction(photo.id);
+                }}
                 className="absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full bg-black/60 px-2 py-1 text-xs text-white backdrop-blur-sm transition-transform active:scale-95"
                 aria-label={liked ? "Remove reaction" : "React with heart"}
               >
-                <span className={liked ? "" : "opacity-70"}>{liked ? "❤️" : "🤍"}</span>
+                <span className={liked ? "" : "opacity-70"}>
+                  {liked ? "❤️" : "🤍"}
+                </span>
                 {photo.reactionCount > 0 && <span>{photo.reactionCount}</span>}
-              </button>
-            </div>
+              </span>
+            </button>
           );
         })}
       </div>
+
+      {selectedPhoto && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+          onClick={closePhoto}
+        >
+          <div
+            className="relative max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-xl bg-background shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={closePhoto}
+              className="absolute right-3 top-3 z-10 rounded-full bg-black/60 px-2 py-1 text-sm text-white"
+            >
+              ✕
+            </button>
+
+            <div className="absolute left-3 top-1/2 z-10 -translate-y-1/2">
+              <button
+                type="button"
+                onClick={() => goToPhoto("prev")}
+                className="rounded-full bg-black/60 px-3 py-2 text-lg text-white"
+              >
+                ‹
+              </button>
+            </div>
+
+            <div className="absolute right-3 top-1/2 z-10 -translate-y-1/2">
+              <button
+                type="button"
+                onClick={() => goToPhoto("next")}
+                className="rounded-full bg-black/60 px-3 py-2 text-lg text-white"
+              >
+                ›
+              </button>
+            </div>
+
+            <div className="max-h-[90vh] overflow-auto">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={selectedPhoto.url}
+                alt=""
+                className="h-auto max-h-[85vh] w-full object-contain"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
