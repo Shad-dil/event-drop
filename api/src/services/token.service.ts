@@ -33,18 +33,18 @@ export function verifyRefreshToken(token: string): RefreshTokenPayload {
 /** Cookie options shared by both tokens; refresh is scoped to /api/auth. */
 export const accessCookieOptions = {
   httpOnly: true,
-  secure: env.NODE_ENV === "production",
-  sameSite: "lax" as const,
+  secure: true,
+  sameSite: "none",
   path: "/",
-  maxAge: 15 * 60 * 1000, // 15 minutes
+  maxAge: 15 * 60 * 1000,
 };
 
 export const refreshCookieOptions = {
   httpOnly: true,
-  secure: env.NODE_ENV === "production",
-  sameSite: "lax" as const,
+  secure: true,
+  sameSite: "none",
   path: "/api/auth",
-  maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+  maxAge: 30 * 24 * 60 * 60 * 1000,
 };
 
 export const ACCESS_COOKIE_NAME = "eventdrop_access";
@@ -61,7 +61,9 @@ export interface GuestTokenPayload {
 }
 
 export function signGuestToken(payload: GuestTokenPayload): string {
-  return jwt.sign(payload, env.GUEST_SESSION_SECRET, { expiresIn: "180d" } as SignOptions);
+  return jwt.sign(payload, env.GUEST_SESSION_SECRET, {
+    expiresIn: "180d",
+  } as SignOptions);
 }
 
 export function verifyGuestToken(token: string): GuestTokenPayload {
