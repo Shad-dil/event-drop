@@ -84,12 +84,39 @@ export function PhotoGallery({
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm text-muted-foreground">
-        {photos.length} photo{photos.length === 1 ? "" : "s"}
-      </p>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">
+          {photos.length} photo{photos.length === 1 ? "" : "s"}
+        </p>
+
+        <button
+          type="button"
+          onClick={async () => {
+            const shareUrl = window.location.href;
+
+            try {
+              if (navigator.share) {
+                await navigator.share({
+                  title: "Event photos",
+                  text: "Check out these event photos",
+                  url: shareUrl,
+                });
+                return;
+              }
+
+              await navigator.clipboard.writeText(shareUrl);
+            } catch {
+              window.prompt("Copy this link:", shareUrl);
+            }
+          }}
+          className="rounded-md border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground"
+        >
+          Share
+        </button>
+      </div>
+
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
         {photos.map((photo) => {
-          const liked = likedPhotoIds.has(photo.id);
           return (
             <button
               key={photo.id}
@@ -104,18 +131,10 @@ export function PhotoGallery({
                 className="h-full w-full object-cover"
                 loading="lazy"
               />
-              <span
-                onClick={(event) => {
-                  event.stopPropagation();
-                  toggleReaction(photo.id);
-                }}
-                className="absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full bg-black/60 px-2 py-1 text-xs text-white backdrop-blur-sm transition-transform active:scale-95"
-                aria-label={liked ? "Remove reaction" : "React with heart"}
-              >
-                <span className={liked ? "" : "opacity-70"}>
-                  {liked ? "❤️" : "🤍"}
-                </span>
-                {photo.reactionCount > 0 && <span>{photo.reactionCount}</span>}
+
+              <span className="absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full bg-black/60 px-2 py-1 text-xs text-white backdrop-blur-sm">
+                <span>❤️</span>
+                <span>{photo.reactionCount}</span>
               </span>
             </button>
           );
@@ -166,6 +185,22 @@ export function PhotoGallery({
                 alt=""
                 className="h-auto max-h-[85vh] w-full object-contain"
               />
+            </div>
+
+            <div className="flex items-center justify-between gap-3 border-t border-border bg-background p-3">
+              <button
+                type="button"
+                onClick={() => toggleReaction(selectedPhoto.id)}
+                className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium"
+              >
+                <span>{likedPhotoIds.has(selectedPhoto.id) ? "❤️" : "🤍"}</span>
+                <span>
+                  {likedPhotoIds.has(selectedPhoto.id) ? "Liked" : "Like"}
+                </span>
+                <span className="text-muted-foreground">
+                  {selectedPhoto.reactionCount}
+                </span>
+              </button>
             </div>
           </div>
         </div>
